@@ -26,7 +26,7 @@ SUFFIX=y4m
 PADDING=false
 EXTRACT_WAV=false
 USAGE="Usage: `basename $0` [-vr=video_reference] [-d=duration] [-w=width] [-h=height] [--fps=fps] [--suffix=suffix] \
-         [-vo=video_output_path] [-ao=audio_output_path] [--no_cleanup] [--clean]"
+         [-vo=video_output_path] [-ao=audio_output_path] [--no_cleanup] [--clean] [--extract_wav]"
 
 ##################################################################################
 # FUNCTIONS
