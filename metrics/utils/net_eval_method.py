@@ -60,7 +60,7 @@ class NetEvalMethodNormal(NetEvalMethod):
             send_time_delta = ssrc_info[ssrc]["last_send_time"] - ssrc_info[ssrc]["start_send_time"]
             recv_time_delta = ssrc_info[ssrc]["last_recv_time"] - ssrc_info[ssrc]["start_recv_time"]
 
-            if recv_time_delta < send_time_delta:
+            if not recv_time_delta or recv_time_delta < send_time_delta:
                 ssrc_info[ssrc]["recv_rate_score"] = 0
             else:
                 ssrc_info[ssrc]["recv_rate_score"] = send_time_delta / recv_time_delta
