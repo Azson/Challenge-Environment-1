@@ -29,6 +29,7 @@ class NetEvalMethodNormal(NetEvalMethod):
         delay_list = []
         loss_count = 0
         self.last_seqNo = {}
+        recv_rate_list = []
         for item in net_data:
             ssrc = item["packetInfo"]["header"]["ssrc"]
             sequence_number = item["packetInfo"]["header"]["sequenceNumber"]
@@ -38,9 +39,7 @@ class NetEvalMethodNormal(NetEvalMethod):
                     "time_delta" : -tmp_delay,
                     "delay_list" : [],
                     "received_nbytes" : 0,
-                    "last_send_time" : item["packetInfo"]["header"]["sendTimestamp"],
-                    "last_recv_time" : item["packetInfo"]["arrivalTimeMs"],
-                    "recv_rate" : []
+                    "start_recv_time" : item["packetInfo"]["arrivalTimeMs"],
                 }
             if ssrc in self.last_seqNo:
                 loss_count += max(0, sequence_number - self.last_seqNo[ssrc] - 1)
@@ -48,14 +47,8 @@ class NetEvalMethodNormal(NetEvalMethod):
                 
             ssrc_info[ssrc]["delay_list"].append(ssrc_info[ssrc]["time_delta"] + tmp_delay)
             ssrc_info[ssrc]["received_nbytes"] += item["packetInfo"]["payloadSize"]
-            tmp_send_delta = item["packetInfo"]["header"]["sendTimestamp"] - ssrc_info[ssrc]["last_send_time"]
-            tmp_recv_delta = item["packetInfo"]["arrivalTimeMs"]  - ssrc_info[ssrc]["last_recv_time"]
-            if not tmp_recv_delta or tmp_send_delta > tmp_recv_delta:
-                ssrc_info[ssrc]["recv_rate"].append(0)
-            else:
-                ssrc_info[ssrc]["recv_rate"].append(tmp_send_delta / tmp_recv_delta)
-            ssrc_info[ssrc]["last_send_time"] = item["packetInfo"]["header"]["sendTimestamp"]
-            ssrc_info[ssrc]["last_recv_time"] = item["packetInfo"]["arrivalTimeMs"]
+            if item["packetInfo"]["arrivalTimeMs"] != ssrc_info[ssrc]["start_recv_time"]:
+                recv_rate_list.append(ssrc_info[ssrc]["received_nbytes"] / (item["packetInfo"]["arrivalTimeMs"] - ssrc_info[ssrc]["start_recv_time"]))
             
         # scale delay list
         for ssrc in ssrc_info:
@@ -64,7 +57,7 @@ class NetEvalMethodNormal(NetEvalMethod):
             delay_pencentile_95 = np.percentile(ssrc_info[ssrc]["scale_delay_list"], 95)
             ssrc_info[ssrc]["delay_socre"] = (self.max_delay - delay_pencentile_95) / (self.max_delay - min_delay / 2)
         # delay score
-        avg_delay_score = np.mean([ssrc_info[ssrc]["delay_socre"] for ssrc in ssrc_info])
+        avg_delay_score = np.mean(recv_rate_list) / max(recv_rate_list)
 
         # receive rate score
         avg_recv_rate_score = np.mean([np.mean(ssrc_info[ssrc]["recv_rate"]) for ssrc in ssrc_info])
