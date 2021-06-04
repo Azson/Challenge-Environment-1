@@ -27,8 +27,11 @@ class NetEvalMethodNormal(NetEvalMethod):
         ssrc_info = {}
 
         delay_list = []
+        loss_count = 0
+        self.last_seqNo = {}
         for item in net_data:
             ssrc = item["packetInfo"]["header"]["ssrc"]
+            sequence_number = item["packetInfo"]["header"]["sequenceNumber"]
             tmp_delay = item["packetInfo"]["arrivalTimeMs"] - item["packetInfo"]["header"]["sendTimestamp"]
             if (ssrc not in ssrc_info):
                 ssrc_info[ssrc] = {
@@ -39,6 +42,9 @@ class NetEvalMethodNormal(NetEvalMethod):
                     "last_recv_time" : item["packetInfo"]["arrivalTimeMs"],
                     "recv_rate" : []
                 }
+            if ssrc in self.last_seqNo:
+                loss_count += max(0, sequence_number - self.last_seqNo[ssrc] - 1)
+            self.last_seqNo[ssrc] = sequence_number
                 
             ssrc_info[ssrc]["delay_list"].append(ssrc_info[ssrc]["time_delta"] + tmp_delay)
             ssrc_info[ssrc]["received_nbytes"] += item["packetInfo"]["payloadSize"]
@@ -64,8 +70,7 @@ class NetEvalMethodNormal(NetEvalMethod):
         avg_recv_rate_score = np.mean([np.mean(ssrc_info[ssrc]["recv_rate"]) for ssrc in ssrc_info])
 
         # higher loss rate, lower score
-        loss_list = [item["packetInfo"]["lossRates"] for item in net_data]
-        avg_loss_rate = sum(loss_list) / len(net_data)
+        avg_loss_rate = loss_count / (loss_count + len(net_data))
 
         # calculate result score
         avg_score = 100 / 3
