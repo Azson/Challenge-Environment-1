@@ -4,6 +4,7 @@
 from utils.net_info import NetInfo
 import numpy as np
 from abc import ABC, abstractmethod
+import json
 
 
 class NetEvalMethod(ABC):
@@ -29,7 +30,7 @@ class NetEvalMethodNormal(NetEvalMethod):
         delay_list = []
         loss_count = 0
         self.last_seqNo = {}
-        recv_rate_list = []
+        # recv_rate_list = []
         for item in net_data:
             ssrc = item["packetInfo"]["header"]["ssrc"]
             sequence_number = item["packetInfo"]["header"]["sequenceNumber"]
@@ -40,6 +41,7 @@ class NetEvalMethodNormal(NetEvalMethod):
                     "delay_list" : [],
                     "received_nbytes" : 0,
                     "start_recv_time" : item["packetInfo"]["arrivalTimeMs"],
+                    "avg_recv_rate" : 0
                 }
             if ssrc in self.last_seqNo:
                 loss_count += max(0, sequence_number - self.last_seqNo[ssrc] - 1)
@@ -48,7 +50,7 @@ class NetEvalMethodNormal(NetEvalMethod):
             ssrc_info[ssrc]["delay_list"].append(ssrc_info[ssrc]["time_delta"] + tmp_delay)
             ssrc_info[ssrc]["received_nbytes"] += item["packetInfo"]["payloadSize"]
             if item["packetInfo"]["arrivalTimeMs"] != ssrc_info[ssrc]["start_recv_time"]:
-                recv_rate_list.append(ssrc_info[ssrc]["received_nbytes"] / (item["packetInfo"]["arrivalTimeMs"] - ssrc_info[ssrc]["start_recv_time"]))
+                ssrc_info[ssrc]["avg_recv_rate"] = ssrc_info[ssrc]["received_nbytes"] / (item["packetInfo"]["arrivalTimeMs"] - ssrc_info[ssrc]["start_recv_time"])
             
         # scale delay list
         for ssrc in ssrc_info:
@@ -60,15 +62,25 @@ class NetEvalMethodNormal(NetEvalMethod):
         avg_delay_score = np.mean([np.mean(ssrc_info[ssrc]["delay_score"]) for ssrc in ssrc_info])
 
         # receive rate score
-        avg_recv_rate_score = np.mean(recv_rate_list) / max(recv_rate_list)
+        recv_rate_list = [ssrc_info[ssrc]["avg_recv_rate"] for ssrc in ssrc_info if ssrc_info[ssrc]["avg_recv_rate"] > 0]
+        print("recv max, min, mean, len", max(recv_rate_list), min(recv_rate_list), np.mean(recv_rate_list), len(recv_rate_list))
+        
+        avg_recv_rate = np.mean(recv_rate_list)
 
         # higher loss rate, lower score
         avg_loss_rate = loss_count / (loss_count + len(net_data))
 
         # calculate result score
         avg_score = 100 / 3
-        network_score = avg_score * avg_delay_score + \
-                            avg_score * avg_recv_rate_score + \
-                            avg_score * (1 - avg_loss_rate)
-
+        # print(avg_delay_score, avg_recv_rate, (1 - avg_loss_rate))
+        network_score = 100*0.33 * avg_delay_score + \
+                            100*0.33 * avg_recv_rate + \
+                            100*0.33 * (1 - avg_loss_rate)
+        with open("tmp_network_detail.json", 'w') as f:
+            data = {
+                "delay" : avg_delay_score,
+                "recv_rate" : avg_recv_rate,
+                "loss" : (1 - avg_loss_rate)
+            }
+            f.write(json.dumps(data))
         return network_score
