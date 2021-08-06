@@ -72,7 +72,12 @@ def get_audio_score(args):
         raise ValueError("Not supoort such method to evaluate audio")
         
     audio_eval_tool = AudioEvaluation(eval_method, args)
-    audio_out = audio_eval_tool.eval(args.dst_audio)
+    try:
+        audio_out = audio_eval_tool.eval(args.dst_audio)
+    except Exception as e:
+        print(e)
+        audio_out = 0
+        
 
     return audio_out
 

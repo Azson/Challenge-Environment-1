@@ -113,7 +113,11 @@ def get_video_score(args):
         raise ValueError("Not supoort such method to align video")
 
     video_eval_tool = VideoEvaluation(eval_method, align_method, args)
-    video_out = video_eval_tool.eval(args.src_video, args.dst_video)
+    try:
+        video_out = video_eval_tool.eval(args.src_video, args.dst_video)
+    except Exception as e:
+        print(e)
+        video_out = 0
     
     return video_out
 
